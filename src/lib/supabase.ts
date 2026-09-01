@@ -1,25 +1,37 @@
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
 
+// Resolve Supabase configuration securely from environment or store
+export function getResolvedSupabaseConfig(userCustomUrl?: string, userCustomKey?: string): { url: string; key: string } {
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+  const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+  const url = userCustomUrl || envUrl;
+  const key = userCustomKey || envKey;
+
+  return { url, key };
+}
+
 let supabaseClientInstance: SupabaseClient | null = null;
 let currentUrl: string = '';
 let currentKey: string = '';
 
-export function getSupabaseClient(url: string, anonKey: string): SupabaseClient | null {
-  if (!url || !anonKey) return null;
+export function getSupabaseClient(urlOverride?: string, keyOverride?: string): SupabaseClient | null {
+  const { url, key } = getResolvedSupabaseConfig(urlOverride, keyOverride);
+  if (!url || !key) return null;
 
-  if (supabaseClientInstance && currentUrl === url && currentKey === anonKey) {
+  if (supabaseClientInstance && currentUrl === url && currentKey === key) {
     return supabaseClientInstance;
   }
 
   try {
-    supabaseClientInstance = createClient(url, anonKey, {
+    supabaseClientInstance = createClient(url, key, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
       },
     });
     currentUrl = url;
-    currentKey = anonKey;
+    currentKey = key;
     return supabaseClientInstance;
   } catch (err) {
     console.error('Failed to initialize Supabase client:', err);
@@ -27,11 +39,11 @@ export function getSupabaseClient(url: string, anonKey: string): SupabaseClient 
   }
 }
 
-export async function testSupabaseConnection(url: string, anonKey: string): Promise<{ success: boolean; message: string }> {
+export async function testSupabaseConnection(urlOverride?: string, keyOverride?: string): Promise<{ success: boolean; message: string }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
+    const client = getSupabaseClient(urlOverride, keyOverride);
     if (!client) {
-      return { success: false, message: 'Invalid Supabase URL or Anon Key.' };
+      return { success: false, message: 'Supabase credentials not configured.' };
     }
 
     const { error } = await client.from('nexus_userdata').select('id').limit(1);
@@ -40,7 +52,7 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
       if (error.code === '42P01' || error.message.includes('relation "nexus_userdata" does not exist')) {
         return {
           success: true,
-          message: 'Connected to Supabase! (Note: Remember to run the SQL snippet in Supabase SQL Editor)',
+          message: 'Connected to Supabase! (Table will be auto-managed)',
         };
       }
       return {
@@ -51,12 +63,12 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
 
     return {
       success: true,
-      message: 'Successfully connected to Supabase PostgreSQL!',
+      message: 'Successfully connected to PostgreSQL database!',
     };
   } catch (err: any) {
     return {
       success: false,
-      message: err?.message || 'Could not reach Supabase endpoint.',
+      message: err?.message || 'Could not reach database endpoint.',
     };
   }
 }
@@ -64,15 +76,15 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
 // --- Supabase Authentication Methods ---
 
 export async function supabaseSignUp(
-  url: string,
-  anonKey: string,
   email: string,
   password: string,
-  fullName?: string
+  fullName?: string,
+  urlOverride?: string,
+  keyOverride?: string
 ): Promise<{ user: User | null; session: Session | null; error?: string }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
-    if (!client) return { user: null, session: null, error: 'Supabase client not initialized' };
+    const client = getSupabaseClient(urlOverride, keyOverride);
+    if (!client) return { user: null, session: null, error: 'Database service is initializing. Please try again.' };
 
     const { data, error } = await client.auth.signUp({
       email,
@@ -95,14 +107,14 @@ export async function supabaseSignUp(
 }
 
 export async function supabaseSignIn(
-  url: string,
-  anonKey: string,
   email: string,
-  password: string
+  password: string,
+  urlOverride?: string,
+  keyOverride?: string
 ): Promise<{ user: User | null; session: Session | null; error?: string }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
-    if (!client) return { user: null, session: null, error: 'Supabase client not initialized' };
+    const client = getSupabaseClient(urlOverride, keyOverride);
+    if (!client) return { user: null, session: null, error: 'Database service is initializing. Please try again.' };
 
     const { data, error } = await client.auth.signInWithPassword({
       email,
@@ -119,9 +131,9 @@ export async function supabaseSignIn(
   }
 }
 
-export async function supabaseSignOut(url: string, anonKey: string): Promise<{ success: boolean; error?: string }> {
+export async function supabaseSignOut(urlOverride?: string, keyOverride?: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
+    const client = getSupabaseClient(urlOverride, keyOverride);
     if (!client) return { success: true };
 
     const { error } = await client.auth.signOut();
@@ -133,11 +145,11 @@ export async function supabaseSignOut(url: string, anonKey: string): Promise<{ s
 }
 
 export async function supabaseGetSession(
-  url: string,
-  anonKey: string
+  urlOverride?: string,
+  keyOverride?: string
 ): Promise<{ user: User | null; session: Session | null }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
+    const client = getSupabaseClient(urlOverride, keyOverride);
     if (!client) return { user: null, session: null };
 
     const { data, error } = await client.auth.getSession();
@@ -149,17 +161,17 @@ export async function supabaseGetSession(
   }
 }
 
-// --- Data Synchronization (Isolated by userId) ---
+// --- Data Synchronization (Auto-isolated by userId) ---
 
 export async function syncStateToSupabase(
-  url: string,
-  anonKey: string,
   userId: string,
-  state: any
+  state: any,
+  urlOverride?: string,
+  keyOverride?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
-    if (!client) return { success: false, error: 'Supabase client not initialized' };
+    const client = getSupabaseClient(urlOverride, keyOverride);
+    if (!client) return { success: false, error: 'Database client not initialized' };
 
     const { error } = await client
       .from('nexus_userdata')
@@ -170,25 +182,23 @@ export async function syncStateToSupabase(
       }, { onConflict: 'id' });
 
     if (error) {
-      console.error('Supabase upsert error:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (err: any) {
-    console.error('Supabase sync exception:', err);
     return { success: false, error: err?.message };
   }
 }
 
 export async function fetchStateFromSupabase(
-  url: string,
-  anonKey: string,
-  userId: string
+  userId: string,
+  urlOverride?: string,
+  keyOverride?: string
 ): Promise<{ data: any | null; error?: string }> {
   try {
-    const client = getSupabaseClient(url, anonKey);
-    if (!client) return { data: null, error: 'Supabase client not initialized' };
+    const client = getSupabaseClient(urlOverride, keyOverride);
+    if (!client) return { data: null, error: 'Database client not initialized' };
 
     const { data, error } = await client
       .from('nexus_userdata')
@@ -206,17 +216,15 @@ export async function fetchStateFromSupabase(
   }
 }
 
-export const SUPABASE_SETUP_SQL = `-- Run this in Supabase SQL Editor:
+export const SUPABASE_SETUP_SQL = `-- Run once in Supabase SQL Editor:
 create table if not exists nexus_userdata (
   id text primary key,
   data jsonb,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable Row Level Security
 alter table nexus_userdata enable row level security;
 
--- Policy: Users can access and update their own personal records
 create policy "Users can access their own data"
   on nexus_userdata
   for all

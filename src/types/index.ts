@@ -59,6 +59,8 @@ export interface AuthUser {
   isGuest?: boolean;
 }
 
+export type SyncStatus = 'synced' | 'saving' | 'offline' | 'error';
+
 export interface UserPreferences {
   id: string;
   name: string;
@@ -69,6 +71,7 @@ export interface UserPreferences {
   dateFormat: string;
   activeWidgets: string[];
   widgetOrder: string[];
+  autoSyncEnabled?: boolean;
   cloudProvider?: 'supabase' | 'firebase' | 'none';
   supabaseUrl?: string;
   supabaseAnonKey?: string;

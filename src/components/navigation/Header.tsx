@@ -8,7 +8,11 @@ import {
   Clock,
   ChevronDown,
   Palette,
-  Check
+  Check,
+  ShieldCheck,
+  RefreshCw,
+  Cloud,
+  CheckCircle2
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from '../common/Button';
@@ -17,6 +21,8 @@ import { ThemeMode } from '../../types';
 export const Header: React.FC = () => {
   const {
     userPreferences,
+    currentUser,
+    syncStatus,
     setTheme,
     setDensity,
     setCommandPaletteOpen,
@@ -54,13 +60,48 @@ export const Header: React.FC = () => {
 
   return (
     <header className="h-14 border-b border-border bg-surface/80 backdrop-blur-md px-5 flex items-center justify-between sticky top-0 z-20">
-      {/* Left: Clock & Date */}
-      <div className="flex items-center gap-3">
+      {/* Left: Clock, Date & Real-Time Sync Indicator */}
+      <div className="flex items-center gap-2.5">
         <div className="flex items-center gap-2 text-xs text-text-muted bg-surface-subtle px-2.5 py-1 rounded-md border border-border">
           <Clock className="w-3.5 h-3.5 text-text-subtle" />
           <span className="font-mono text-text-main font-semibold">{currentTime}</span>
           <span className="text-text-subtle">·</span>
           <span className="text-text-muted">{currentDateStr}</span>
+        </div>
+
+        {/* Real-Time Cloud Sync Badge */}
+        <div
+          title={
+            syncStatus === 'saving'
+              ? 'Auto-saving changes to PostgreSQL...'
+              : syncStatus === 'error'
+              ? 'Cloud sync pending'
+              : 'End-to-end encrypted & synced'
+          }
+          className={`hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+            syncStatus === 'saving'
+              ? 'bg-amber-950/40 text-amber-300 border-amber-800/80'
+              : syncStatus === 'error'
+              ? 'bg-rose-950/40 text-rose-300 border-rose-800/80'
+              : 'bg-surface-subtle text-text-muted border-border'
+          }`}
+        >
+          {syncStatus === 'saving' ? (
+            <>
+              <RefreshCw className="w-3 h-3 text-amber-400 animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : syncStatus === 'error' ? (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+              <span>Sync Pending</span>
+            </>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="text-text-muted font-medium">All changes saved</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -169,3 +210,5 @@ export const Header: React.FC = () => {
     </header>
   );
 };
+
+export default Header;

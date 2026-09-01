@@ -15,7 +15,8 @@ import {
   DensityMode,
   TaskStatus,
   SUPPORTED_COUNTRIES,
-  AuthUser
+  AuthUser,
+  SyncStatus
 } from '../types';
 import {
   initialUserPreferences,
@@ -36,7 +37,8 @@ import {
   supabaseSignUp,
   supabaseSignIn,
   supabaseSignOut,
-  supabaseGetSession
+  supabaseGetSession,
+  getResolvedSupabaseConfig
 } from '../lib/supabase';
 
 export type ActiveNavTab = 'today' | 'tasks' | 'calendar' | 'finance' | 'habits' | 'nexus' | 'settings';
@@ -130,6 +132,12 @@ interface AppState {
   syncToSupabase: () => Promise<boolean>;
   fetchFromSupabase: () => Promise<boolean>;
 
+  // Real-Time Background Auto-Sync
+  syncStatus: SyncStatus;
+  lastSyncedAt: string;
+  setSyncStatus: (status: SyncStatus) => void;
+  triggerAutoSync: () => void;
+
   // User Authentication & Privacy Isolation
   currentUser: AuthUser | null;
   isAuthenticated: boolean;
@@ -144,6 +152,8 @@ interface AppState {
 
 const { dailyLogs: seedDailyLogs, nexusMetrics: seedNexusMetrics } = generateHistoricalData();
 
+let autoSyncTimer: any = null;
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -156,6 +166,50 @@ export const useAppStore = create<AppState>()(
       setQuickAddOpen: (open) => set({ isQuickAddOpen: open }),
       isWidgetModalOpen: false,
       setWidgetModalOpen: (open) => set({ isWidgetModalOpen: open }),
+
+      // Real-Time Background Auto-Sync
+      syncStatus: 'synced',
+      lastSyncedAt: new Date().toISOString(),
+      setSyncStatus: (status) => set({ syncStatus: status }),
+      triggerAutoSync: () => {
+        const state = get();
+        if (state.userPreferences.autoSyncEnabled === false) return;
+
+        const { url, key } = getResolvedSupabaseConfig(state.userPreferences.supabaseUrl, state.userPreferences.supabaseAnonKey);
+
+        if (!url || !key) {
+          set({ syncStatus: 'offline' });
+          return;
+        }
+
+        set({ syncStatus: 'saving' });
+
+        if (autoSyncTimer) clearTimeout(autoSyncTimer);
+
+        autoSyncTimer = setTimeout(async () => {
+          const currentState = get();
+          const userId = currentState.currentUser?.id || currentState.userPreferences.id || 'default_user';
+          const payload = {
+            userPreferences: currentState.userPreferences,
+            accounts: currentState.accounts,
+            budgets: currentState.budgets,
+            transactions: currentState.transactions,
+            tasks: currentState.tasks,
+            calendarEvents: currentState.calendarEvents,
+            habits: currentState.habits,
+            dailyLogs: currentState.dailyLogs,
+            nexusMetrics: currentState.nexusMetrics,
+            nexusInsights: currentState.nexusInsights,
+          };
+
+          const res = await syncStateToSupabase(userId, payload, currentState.userPreferences.supabaseUrl, currentState.userPreferences.supabaseAnonKey);
+          if (res.success) {
+            set({ syncStatus: 'synced', lastSyncedAt: new Date().toISOString() });
+          } else {
+            set({ syncStatus: 'error' });
+          }
+        }, 800);
+      },
 
       // User Authentication State
       currentUser: null,
@@ -291,6 +345,7 @@ export const useAppStore = create<AppState>()(
         });
 
         get().refreshNexusMetricsForDate(txData.date);
+        get().triggerAutoSync();
         get().addToast(
           'Transaction Recorded',
           `${txData.type === 'income' ? '+' : '-'}${currencySymbol}${txData.amount.toFixed(2)} for ${txData.payee || txData.categoryName} (${countryCode})`
@@ -336,6 +391,7 @@ export const useAppStore = create<AppState>()(
             accounts: updatedAccounts,
           };
         });
+        get().triggerAutoSync();
         get().addToast('Transaction Updated', 'Changes saved successfully');
       },
 
@@ -357,6 +413,7 @@ export const useAppStore = create<AppState>()(
             accounts: updatedAccounts,
           };
         });
+        get().triggerAutoSync();
         get().addToast('Transaction Removed', 'The entry has been deleted');
       },
 
@@ -373,6 +430,7 @@ export const useAppStore = create<AppState>()(
           updatedAt: new Date().toISOString(),
         };
         set((state) => ({ accounts: [...state.accounts, newAcc] }));
+        get().triggerAutoSync();
         get().addToast('Vault Added', `${newAcc.countryFlag} ${newAcc.name} (${newAcc.currency}) created`);
       },
 
@@ -399,6 +457,7 @@ export const useAppStore = create<AppState>()(
 
           return { accounts: updatedAccounts };
         });
+        get().triggerAutoSync();
         get().addToast('Account Updated', 'Account details and country vault saved');
       },
 
@@ -406,6 +465,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           accounts: state.accounts.filter((acc) => acc.id !== id),
         }));
+        get().triggerAutoSync();
         get().addToast('Account Deleted', 'Account removed from portfolio');
       },
 
@@ -413,6 +473,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           budgets: state.budgets.map((b) => (b.id === id ? { ...b, monthlyLimit: limit } : b)),
         }));
+        get().triggerAutoSync();
         get().addToast('Budget Updated', 'Monthly spending limit adjusted');
       },
 
@@ -423,6 +484,7 @@ export const useAppStore = create<AppState>()(
           spent: 0,
         };
         set((state) => ({ budgets: [...state.budgets, newBgt] }));
+        get().triggerAutoSync();
         get().addToast('Budget Created', `${newBgt.name} target created`);
       },
 
@@ -436,6 +498,7 @@ export const useAppStore = create<AppState>()(
         };
         set((state) => ({ tasks: [newTask, ...state.tasks] }));
         get().refreshNexusMetricsForDate(newTask.dueDate);
+        get().triggerAutoSync();
         get().addToast('Task Created', newTask.title);
         return newTask;
       },
@@ -444,6 +507,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...taskUpdate } : t)),
         }));
+        get().triggerAutoSync();
       },
 
       toggleTaskStatus: (id) => {
@@ -464,6 +528,7 @@ export const useAppStore = create<AppState>()(
           return { tasks: updatedTasks };
         });
         get().refreshNexusMetricsForDate(targetDueDate);
+        get().triggerAutoSync();
       },
 
       toggleSubtask: (taskId, subtaskId) => {
@@ -478,12 +543,14 @@ export const useAppStore = create<AppState>()(
             return t;
           }),
         }));
+        get().triggerAutoSync();
       },
 
       deleteTask: (id) => {
         set((state) => ({
           tasks: state.tasks.filter((t) => t.id !== id),
         }));
+        get().triggerAutoSync();
         get().addToast('Task Removed', 'Task deleted');
       },
 
@@ -492,6 +559,7 @@ export const useAppStore = create<AppState>()(
         const id = 'evt_' + Date.now();
         const newEvt: CalendarEvent = { ...eventData, id };
         set((state) => ({ calendarEvents: [...state.calendarEvents, newEvt] }));
+        get().triggerAutoSync();
         get().addToast('Event Scheduled', `${newEvt.title} at ${newEvt.startTime}`);
         return newEvt;
       },
@@ -500,12 +568,14 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           calendarEvents: state.calendarEvents.map((evt) => (evt.id === id ? { ...evt, ...eventUpdate } : evt)),
         }));
+        get().triggerAutoSync();
       },
 
       deleteCalendarEvent: (id) => {
         set((state) => ({
           calendarEvents: state.calendarEvents.filter((evt) => evt.id !== id),
         }));
+        get().triggerAutoSync();
       },
 
       timeBlockTask: (taskId, date, startTime, durationMins = 60) => {
@@ -535,6 +605,7 @@ export const useAppStore = create<AppState>()(
           tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, dueDate: date, dueTime: startTime } : t)),
         }));
 
+        get().triggerAutoSync();
         get().addToast('Time Block Created', `Scheduled ${startTime} - ${endTime} for "${task.title}"`);
       },
 
@@ -549,6 +620,7 @@ export const useAppStore = create<AppState>()(
           createdAt: new Date().toISOString(),
         };
         set((state) => ({ habits: [...state.habits, newHabit] }));
+        get().triggerAutoSync();
         get().addToast('Habit Created', `Tracking "${newHabit.name}"`);
       },
 
@@ -556,6 +628,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           habits: state.habits.map((h) => (h.id === id ? { ...h, ...habitUpdate } : h)),
         }));
+        get().triggerAutoSync();
       },
 
       deleteHabit: (id) => {
@@ -563,6 +636,7 @@ export const useAppStore = create<AppState>()(
           habits: state.habits.filter((h) => h.id !== id),
           dailyLogs: state.dailyLogs.filter((l) => l.habitId !== id),
         }));
+        get().triggerAutoSync();
       },
 
       toggleHabitLog: (habitId, customDate) => {
@@ -607,6 +681,7 @@ export const useAppStore = create<AppState>()(
 
         set({ dailyLogs: updatedLogs, habits: updatedHabits });
         get().refreshNexusMetricsForDate(date);
+        get().triggerAutoSync();
         return willBeCompleted;
       },
 
@@ -806,11 +881,10 @@ export const useAppStore = create<AppState>()(
       syncToSupabase: async () => {
         const state = get();
         const prefs = state.userPreferences;
-        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
-        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+        const { url, key } = getResolvedSupabaseConfig(prefs.supabaseUrl, prefs.supabaseAnonKey);
 
         if (!url || !key) {
-          get().addToast('Config Missing', 'Please enter your Supabase Project URL and Anon Key in Settings', 'warning');
+          get().addToast('Config Missing', 'Supabase credentials not configured', 'warning');
           return false;
         }
 
@@ -827,11 +901,13 @@ export const useAppStore = create<AppState>()(
           nexusInsights: state.nexusInsights,
         };
 
-        const res = await syncStateToSupabase(url, key, prefs.id || 'default_user', payload);
+        const res = await syncStateToSupabase(prefs.id || 'default_user', payload, prefs.supabaseUrl, prefs.supabaseAnonKey);
         if (res.success) {
+          set({ syncStatus: 'synced', lastSyncedAt: new Date().toISOString() });
           get().addToast('Synced to Supabase', 'All personal records saved to PostgreSQL', 'success');
           return true;
         } else {
+          set({ syncStatus: 'error' });
           get().addToast('Supabase Sync Failed', res.error || 'Could not write to Supabase table', 'error');
           return false;
         }
@@ -840,15 +916,14 @@ export const useAppStore = create<AppState>()(
       fetchFromSupabase: async () => {
         const state = get();
         const prefs = state.userPreferences;
-        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
-        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+        const { url, key } = getResolvedSupabaseConfig(prefs.supabaseUrl, prefs.supabaseAnonKey);
 
         if (!url || !key) {
-          get().addToast('Config Missing', 'Please enter your Supabase Project URL and Anon Key in Settings', 'warning');
+          get().addToast('Config Missing', 'Supabase credentials not configured', 'warning');
           return false;
         }
 
-        const res = await fetchStateFromSupabase(url, key, prefs.id || 'default_user');
+        const res = await fetchStateFromSupabase(prefs.id || 'default_user', prefs.supabaseUrl, prefs.supabaseAnonKey);
         if (res.data) {
           const data = res.data;
           set({
@@ -862,6 +937,8 @@ export const useAppStore = create<AppState>()(
             dailyLogs: data.dailyLogs || [],
             nexusMetrics: data.nexusMetrics || [],
             nexusInsights: data.nexusInsights || [],
+            syncStatus: 'synced',
+            lastSyncedAt: new Date().toISOString(),
           });
           get().addToast('Restored from Supabase', 'Fetched latest data from PostgreSQL', 'success');
           return true;
@@ -874,16 +951,8 @@ export const useAppStore = create<AppState>()(
       registerWithSupabase: async (email, password, name) => {
         const state = get();
         const prefs = state.userPreferences;
-        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
-        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
 
-        if (!url || !key) {
-          const err = 'Please enter your Supabase Project URL and Anon Key first in Settings.';
-          get().addToast('Supabase Config Missing', err, 'warning');
-          return { success: false, message: err };
-        }
-
-        const res = await supabaseSignUp(url, key, email, password, name);
+        const res = await supabaseSignUp(email, password, name, prefs.supabaseUrl, prefs.supabaseAnonKey);
         if (res.error) {
           get().addToast('Registration Failed', res.error, 'error');
           return { success: false, message: res.error };
@@ -920,9 +989,9 @@ export const useAppStore = create<AppState>()(
             nexusInsights: [],
           });
 
-          // Sync initial fresh sandbox to Supabase
+          // Trigger initial silent sync
           setTimeout(() => {
-            get().syncToSupabase();
+            get().triggerAutoSync();
           }, 300);
 
           get().addToast('Account Created!', `Welcome to NexusOS, ${fullName}!`, 'success');
@@ -935,16 +1004,8 @@ export const useAppStore = create<AppState>()(
       loginWithSupabase: async (email, password) => {
         const state = get();
         const prefs = state.userPreferences;
-        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
-        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
 
-        if (!url || !key) {
-          const err = 'Please enter your Supabase Project URL and Anon Key first in Settings.';
-          get().addToast('Supabase Config Missing', err, 'warning');
-          return { success: false, message: err };
-        }
-
-        const res = await supabaseSignIn(url, key, email, password);
+        const res = await supabaseSignIn(email, password, prefs.supabaseUrl, prefs.supabaseAnonKey);
         if (res.error) {
           get().addToast('Login Failed', res.error, 'error');
           return { success: false, message: res.error };
@@ -972,7 +1033,7 @@ export const useAppStore = create<AppState>()(
           });
 
           // Automatically fetch user's isolated data from Supabase
-          const cloudData = await fetchStateFromSupabase(url, key, res.user.id);
+          const cloudData = await fetchStateFromSupabase(res.user.id, prefs.supabaseUrl, prefs.supabaseAnonKey);
           if (cloudData.data) {
             const d = cloudData.data;
             set({
@@ -986,6 +1047,8 @@ export const useAppStore = create<AppState>()(
               dailyLogs: d.dailyLogs || [],
               nexusMetrics: d.nexusMetrics || [],
               nexusInsights: d.nexusInsights || [],
+              syncStatus: 'synced',
+              lastSyncedAt: new Date().toISOString(),
             });
           }
 
@@ -999,12 +1062,8 @@ export const useAppStore = create<AppState>()(
       logoutUser: async () => {
         const state = get();
         const prefs = state.userPreferences;
-        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
-        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
 
-        if (url && key) {
-          await supabaseSignOut(url, key);
-        }
+        await supabaseSignOut(prefs.supabaseUrl, prefs.supabaseAnonKey);
 
         set({
           currentUser: null,
@@ -1051,8 +1110,7 @@ export const useAppStore = create<AppState>()(
       checkExistingSession: async () => {
         const state = get();
         const prefs = state.userPreferences;
-        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
-        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+        const { url, key } = getResolvedSupabaseConfig(prefs.supabaseUrl, prefs.supabaseAnonKey);
 
         if (url && key) {
           const sessionRes = await supabaseGetSession(url, key);
@@ -1068,6 +1126,26 @@ export const useAppStore = create<AppState>()(
               },
               isAuthenticated: true,
             });
+
+            // Auto-load latest cloud state on startup
+            const cloudData = await fetchStateFromSupabase(user.id, url, key);
+            if (cloudData.data) {
+              const d = cloudData.data;
+              set({
+                userPreferences: d.userPreferences || get().userPreferences,
+                accounts: d.accounts || [],
+                budgets: d.budgets || [],
+                transactions: d.transactions || [],
+                tasks: d.tasks || [],
+                calendarEvents: d.calendarEvents || [],
+                habits: d.habits || [],
+                dailyLogs: d.dailyLogs || [],
+                nexusMetrics: d.nexusMetrics || [],
+                nexusInsights: d.nexusInsights || [],
+                syncStatus: 'synced',
+                lastSyncedAt: new Date().toISOString(),
+              });
+            }
           }
         }
       },
