@@ -781,7 +781,10 @@ export const useAppStore = create<AppState>()(
       syncToSupabase: async () => {
         const state = get();
         const prefs = state.userPreferences;
-        if (!prefs.supabaseUrl || !prefs.supabaseAnonKey) {
+        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+        if (!url || !key) {
           get().addToast('Config Missing', 'Please enter your Supabase Project URL and Anon Key in Settings', 'warning');
           return false;
         }
@@ -799,7 +802,7 @@ export const useAppStore = create<AppState>()(
           nexusInsights: state.nexusInsights,
         };
 
-        const res = await syncStateToSupabase(prefs.supabaseUrl, prefs.supabaseAnonKey, prefs.id || 'default_user', payload);
+        const res = await syncStateToSupabase(url, key, prefs.id || 'default_user', payload);
         if (res.success) {
           get().addToast('Synced to Supabase', 'All personal records saved to PostgreSQL', 'success');
           return true;
@@ -812,12 +815,15 @@ export const useAppStore = create<AppState>()(
       fetchFromSupabase: async () => {
         const state = get();
         const prefs = state.userPreferences;
-        if (!prefs.supabaseUrl || !prefs.supabaseAnonKey) {
+        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+        if (!url || !key) {
           get().addToast('Config Missing', 'Please enter your Supabase Project URL and Anon Key in Settings', 'warning');
           return false;
         }
 
-        const res = await fetchStateFromSupabase(prefs.supabaseUrl, prefs.supabaseAnonKey, prefs.id || 'default_user');
+        const res = await fetchStateFromSupabase(url, key, prefs.id || 'default_user');
         if (res.data) {
           const data = res.data;
           set({

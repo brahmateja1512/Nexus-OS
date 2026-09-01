@@ -53,8 +53,12 @@ export const SettingsView: React.FC = () => {
   );
 
   // Supabase Credentials
-  const [supabaseUrl, setSupabaseUrl] = useState(userPreferences.supabaseUrl || '');
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState(userPreferences.supabaseAnonKey || '');
+  const [supabaseUrl, setSupabaseUrl] = useState(
+    userPreferences.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || ''
+  );
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState(
+    userPreferences.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || ''
+  );
   const [isTestingSupabase, setIsTestingSupabase] = useState(false);
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
   const [isFetchingSupabase, setIsFetchingSupabase] = useState(false);

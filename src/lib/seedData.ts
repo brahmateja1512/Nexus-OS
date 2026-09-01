@@ -11,6 +11,9 @@ import {
   NexusInsight
 } from '../types';
 
+const envSupabaseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+const envSupabaseKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
 export const initialUserPreferences: UserPreferences = {
   id: 'user_nexus_01',
   name: 'Alex Vance',
@@ -35,6 +38,9 @@ export const initialUserPreferences: UserPreferences = {
     'finance_burn',
     'nexus_insights'
   ],
+  supabaseUrl: envSupabaseUrl,
+  supabaseAnonKey: envSupabaseKey,
+  isSupabaseConnected: Boolean(envSupabaseUrl && envSupabaseKey),
   isFirebaseConnected: false,
 };
 
