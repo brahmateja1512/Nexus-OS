@@ -16,8 +16,8 @@ const envSupabaseKey = (typeof import.meta !== 'undefined' && import.meta.env?.V
 
 export const initialUserPreferences: UserPreferences = {
   id: 'user_nexus_01',
-  name: 'Alex Vance',
-  email: 'alex@example.com',
+  name: '',
+  email: '',
   theme: 'dark',
   density: 'comfortable',
   currency: 'USD',

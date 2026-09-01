@@ -54,14 +54,11 @@ export const Sidebar: React.FC = () => {
     { id: 'admin', label: 'Admin Infrastructure', icon: <ShieldAlert className="w-4 h-4 text-amber-400" /> },
   ];
 
-  const userName = currentUser?.name || userPreferences.name || 'Personal User';
-  const userEmail = currentUser?.email || userPreferences.email || 'offline@local';
+  const userName = currentUser?.name || userPreferences.name || '';
+  const userEmail = currentUser?.email || userPreferences.email || '';
   const initials = userName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase() || 'NX';
+    ? userName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+    : 'NX';
 
   const handleNavClick = (tab: ActiveNavTab) => {
     setActiveTab(tab);
@@ -132,7 +129,7 @@ export const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Footer System Status & User Profile */}
+      {/* Footer System Status, User Profile & Copyright */}
       <div className="p-3 border-t border-border space-y-2">
         {/* Storage State Indicator */}
         <div className="p-2 rounded-lg bg-surface-subtle border border-border text-xs">
@@ -155,14 +152,20 @@ export const Sidebar: React.FC = () => {
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold text-text-main truncate">{userName}</p>
+              <p className="text-[11px] font-semibold text-text-main truncate">
+                {currentUser?.isGuest ? 'Guest User' : (userName || 'Not signed in')}
+              </p>
               <p className="text-[9px] text-text-subtle truncate">
-                {currentUser?.isGuest ? 'Guest Mode' : userEmail}
+                {currentUser?.isGuest
+                  ? 'Offline · Local only'
+                  : currentUser
+                  ? (userEmail || 'No email set')
+                  : 'Sign in to sync your data'}
               </p>
             </div>
           </div>
 
-          {/* Auth Action Button (Sign In or Log Out) */}
+          {/* Auth Action Button */}
           {currentUser && !currentUser.isGuest ? (
             <button
               onClick={() => {
@@ -187,6 +190,35 @@ export const Sidebar: React.FC = () => {
               <span>Sign In</span>
             </button>
           )}
+        </div>
+
+        {/* Copyright & Footer Links */}
+        <div className="pt-1.5 border-t border-border/50 space-y-1.5">
+          <p className="text-[9px] text-text-subtle text-center font-mono">
+            © {new Date().getFullYear()} NexusOS Enterprise
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => handleNavClick('settings')}
+              className="text-[9px] text-text-subtle hover:text-text-muted transition-colors cursor-pointer"
+            >
+              Settings
+            </button>
+            <span className="text-border text-[9px]">·</span>
+            <button
+              onClick={() => handleNavClick('nexus')}
+              className="text-[9px] text-text-subtle hover:text-text-muted transition-colors cursor-pointer"
+            >
+              Nexus Core
+            </button>
+            <span className="text-border text-[9px]">·</span>
+            <button
+              onClick={() => handleNavClick('admin')}
+              className="text-[9px] text-text-subtle hover:text-text-muted transition-colors cursor-pointer"
+            >
+              Admin
+            </button>
+          </div>
         </div>
       </div>
     </div>
