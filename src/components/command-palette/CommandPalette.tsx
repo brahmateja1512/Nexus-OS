@@ -184,7 +184,8 @@ export const CommandPalette: React.FC = () => {
       { name: 'Finance & Multi-Country Vaults', id: 'finance' as const, icon: <Wallet className="w-4 h-4 text-zinc-300" /> },
       { name: 'Habits & Discipline', id: 'habits' as const, icon: <Flame className="w-4 h-4 text-zinc-300" /> },
       { name: 'The Nexus Core', id: 'nexus' as const, icon: <GitMerge className="w-4 h-4 text-zinc-300" /> },
-      { name: 'Settings & Cloud', id: 'settings' as const, icon: <Settings className="w-4 h-4 text-zinc-300" /> },
+      { name: 'Settings & Profile', id: 'settings' as const, icon: <Settings className="w-4 h-4 text-zinc-300" /> },
+      { name: 'Admin Infrastructure Portal', id: 'admin' as const, icon: <Settings className="w-4 h-4 text-amber-400" /> },
     ];
 
     navs.forEach((n) => {

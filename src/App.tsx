@@ -15,10 +15,12 @@ import { FinanceView } from './components/finance/FinanceView';
 import { HabitsView } from './components/habits/HabitsView';
 import { NexusView } from './components/nexus/NexusView';
 import { SettingsView } from './components/settings/SettingsView';
+import { AdminPortal } from './components/admin/AdminPortal';
 
 export function App() {
   const {
     activeTab,
+    setActiveTab,
     userPreferences,
     checkExistingSession
   } = useAppStore();
@@ -41,6 +43,18 @@ export function App() {
     checkExistingSession();
   }, [checkExistingSession]);
 
+  // Listen for #admin URL hash or navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#admin') {
+        setActiveTab('admin');
+      }
+    };
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [setActiveTab]);
+
   const renderActiveView = () => {
     switch (activeTab) {
       case 'today':
@@ -57,6 +71,8 @@ export function App() {
         return <NexusView />;
       case 'settings':
         return <SettingsView />;
+      case 'admin':
+        return <AdminPortal />;
       default:
         return <TodayDashboard />;
     }

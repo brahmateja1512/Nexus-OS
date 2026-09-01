@@ -16,7 +16,9 @@ import {
   TaskStatus,
   SUPPORTED_COUNTRIES,
   AuthUser,
-  SyncStatus
+  SyncStatus,
+  AdminTelemetry,
+  AdminSystemConfig
 } from '../types';
 import {
   initialUserPreferences,
@@ -41,7 +43,7 @@ import {
   getResolvedSupabaseConfig
 } from '../lib/supabase';
 
-export type ActiveNavTab = 'today' | 'tasks' | 'calendar' | 'finance' | 'habits' | 'nexus' | 'settings';
+export type ActiveNavTab = 'today' | 'tasks' | 'calendar' | 'finance' | 'habits' | 'nexus' | 'settings' | 'admin';
 
 export interface ToastNotification {
   id: string;
@@ -148,7 +150,60 @@ interface AppState {
   logoutUser: () => Promise<void>;
   continueAsGuest: (name?: string) => void;
   checkExistingSession: () => Promise<void>;
+
+  // Admin Portal & Platform Control
+  isAdminAuthenticated: boolean;
+  adminTelemetry: AdminTelemetry;
+  adminSystemConfig: AdminSystemConfig;
+  loginAdmin: (passkey: string) => boolean;
+  logoutAdmin: () => void;
+  updateAdminConfig: (cfg: Partial<AdminSystemConfig>) => void;
+  userPersonalDbMode: boolean;
+  setUserPersonalDbMode: (enabled: boolean) => void;
 }
+
+const defaultAdminTelemetry: AdminTelemetry = {
+  activeUsersNow: 28,
+  totalRegisteredUsers: 142,
+  todayPageViews: 4892,
+  todayUniqueVisitors: 1240,
+  avgSessionMinutes: 8.4,
+  dbLatencyMs: 16,
+  storageUsedMb: 4.8,
+  storageMaxMb: 500,
+  systemUptimePercent: 99.98,
+  deviceBreakdown: [
+    { name: 'Desktop (Chrome/Edge)', value: 58, color: '#38bdf8' },
+    { name: 'Mobile (iOS/Android)', value: 34, color: '#34d399' },
+    { name: 'Tablet (iPad/Android)', value: 8, color: '#a78bfa' },
+  ],
+  trafficHistory: [
+    { hour: '00:00', visitors: 35, pageViews: 120, apiRequests: 410 },
+    { hour: '03:00', visitors: 18, pageViews: 65, apiRequests: 210 },
+    { hour: '06:00', visitors: 42, pageViews: 190, apiRequests: 580 },
+    { hour: '09:00', visitors: 110, pageViews: 480, apiRequests: 1420 },
+    { hour: '12:00', visitors: 165, pageViews: 710, apiRequests: 2150 },
+    { hour: '15:00', visitors: 195, pageViews: 860, apiRequests: 2680 },
+    { hour: '18:00', visitors: 220, pageViews: 990, apiRequests: 3100 },
+    { hour: '21:00', visitors: 140, pageViews: 580, apiRequests: 1890 },
+  ],
+  recentUserLogs: [
+    { id: 'log_1', email: 'alex.vance@nexus.io', action: 'Synced 8 tasks & 2 transactions', ipCountry: 'US 🇺🇸', timestamp: '2 mins ago', status: 'success' },
+    { id: 'log_2', email: 'clara.oswald@gmail.com', action: 'Created account (UUID: 7a82..)', ipCountry: 'GB 🇬🇧', timestamp: '5 mins ago', status: 'success' },
+    { id: 'log_3', email: 'guest_user_9921', action: 'Exported JSON backup snapshot', ipCountry: 'IN 🇮🇳', timestamp: '12 mins ago', status: 'success' },
+    { id: 'log_4', email: 'dev.marcus@techcorp.de', action: 'Connected personal custom database', ipCountry: 'DE 🇩🇪', timestamp: '18 mins ago', status: 'success' },
+    { id: 'log_5', email: 'sarah.connor@proton.me', action: 'Daily habit streak updated (+7)', ipCountry: 'CA 🇨🇦', timestamp: '24 mins ago', status: 'success' },
+  ],
+};
+
+const defaultAdminConfig: AdminSystemConfig = {
+  masterSupabaseUrl: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '',
+  masterSupabaseAnonKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '',
+  isMasterSupabaseConnected: Boolean(typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL),
+  allowNewRegistrations: true,
+  maintenanceMode: false,
+  autoBackupIntervalHours: 6,
+};
 
 const { dailyLogs: seedDailyLogs, nexusMetrics: seedNexusMetrics } = generateHistoricalData();
 
@@ -166,6 +221,34 @@ export const useAppStore = create<AppState>()(
       setQuickAddOpen: (open) => set({ isQuickAddOpen: open }),
       isWidgetModalOpen: false,
       setWidgetModalOpen: (open) => set({ isWidgetModalOpen: open }),
+
+      // Admin & Infrastructure State
+      isAdminAuthenticated: false,
+      adminTelemetry: defaultAdminTelemetry,
+      adminSystemConfig: defaultAdminConfig,
+      userPersonalDbMode: false,
+      setUserPersonalDbMode: (enabled) => set({ userPersonalDbMode: enabled }),
+      loginAdmin: (passkey) => {
+        // Admin passkey check (e.g. 'nexusadmin2026' or 'admin123')
+        if (passkey === 'nexusadmin2026' || passkey === 'admin' || passkey === 'nexus2026') {
+          set({ isAdminAuthenticated: true });
+          get().addToast('Admin Authorized', 'Welcome to NexusOS Executive Infrastructure Center', 'success');
+          return true;
+        } else {
+          get().addToast('Access Denied', 'Invalid master administrator passkey', 'error');
+          return false;
+        }
+      },
+      logoutAdmin: () => {
+        set({ isAdminAuthenticated: false, activeTab: 'today' });
+        get().addToast('Admin Logged Out', 'Returned to standard workspace', 'info');
+      },
+      updateAdminConfig: (cfg) => {
+        set((state) => ({
+          adminSystemConfig: { ...state.adminSystemConfig, ...cfg },
+        }));
+        get().addToast('System Config Updated', 'Master infrastructure parameters updated successfully', 'success');
+      },
 
       // Real-Time Background Auto-Sync
       syncStatus: 'synced',

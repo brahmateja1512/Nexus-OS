@@ -61,6 +61,49 @@ export interface AuthUser {
 
 export type SyncStatus = 'synced' | 'saving' | 'offline' | 'error';
 
+export interface TrafficDataPoint {
+  hour: string;
+  visitors: number;
+  pageViews: number;
+  apiRequests: number;
+}
+
+export interface AdminTelemetry {
+  activeUsersNow: number;
+  totalRegisteredUsers: number;
+  todayPageViews: number;
+  todayUniqueVisitors: number;
+  avgSessionMinutes: number;
+  dbLatencyMs: number;
+  storageUsedMb: number;
+  storageMaxMb: number;
+  systemUptimePercent: number;
+  deviceBreakdown: { name: string; value: number; color: string }[];
+  trafficHistory: TrafficDataPoint[];
+  recentUserLogs: {
+    id: string;
+    email: string;
+    action: string;
+    ipCountry: string;
+    timestamp: string;
+    status: 'success' | 'warning' | 'error';
+  }[];
+}
+
+export interface AdminSystemConfig {
+  masterSupabaseUrl: string;
+  masterSupabaseAnonKey: string;
+  isMasterSupabaseConnected: boolean;
+  masterFirebaseApiKey?: string;
+  masterFirebaseProjectId?: string;
+  masterFirebaseAppId?: string;
+  isMasterFirebaseConnected?: boolean;
+  allowNewRegistrations: boolean;
+  maintenanceMode: boolean;
+  systemAnnouncement?: string;
+  autoBackupIntervalHours: number;
+}
+
 export interface UserPreferences {
   id: string;
   name: string;
