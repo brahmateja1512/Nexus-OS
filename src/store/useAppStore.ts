@@ -14,7 +14,8 @@ import {
   ThemeMode,
   DensityMode,
   TaskStatus,
-  SUPPORTED_COUNTRIES
+  SUPPORTED_COUNTRIES,
+  AuthUser
 } from '../types';
 import {
   initialUserPreferences,
@@ -29,7 +30,14 @@ import {
 } from '../lib/seedData';
 import { getTodayString } from '../lib/utils';
 import { syncStateToFirestore, fetchStateFromFirestore } from '../lib/firebase';
-import { syncStateToSupabase, fetchStateFromSupabase } from '../lib/supabase';
+import {
+  syncStateToSupabase,
+  fetchStateFromSupabase,
+  supabaseSignUp,
+  supabaseSignIn,
+  supabaseSignOut,
+  supabaseGetSession
+} from '../lib/supabase';
 
 export type ActiveNavTab = 'today' | 'tasks' | 'calendar' | 'finance' | 'habits' | 'nexus' | 'settings';
 
@@ -121,6 +129,17 @@ interface AppState {
   fetchFromGoogleCloud: () => Promise<boolean>;
   syncToSupabase: () => Promise<boolean>;
   fetchFromSupabase: () => Promise<boolean>;
+
+  // User Authentication & Privacy Isolation
+  currentUser: AuthUser | null;
+  isAuthenticated: boolean;
+  isAuthModalOpen: boolean;
+  setAuthModalOpen: (open: boolean) => void;
+  registerWithSupabase: (email: string, password: string, name?: string) => Promise<{ success: boolean; message?: string }>;
+  loginWithSupabase: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  logoutUser: () => Promise<void>;
+  continueAsGuest: (name?: string) => void;
+  checkExistingSession: () => Promise<void>;
 }
 
 const { dailyLogs: seedDailyLogs, nexusMetrics: seedNexusMetrics } = generateHistoricalData();
@@ -137,6 +156,12 @@ export const useAppStore = create<AppState>()(
       setQuickAddOpen: (open) => set({ isQuickAddOpen: open }),
       isWidgetModalOpen: false,
       setWidgetModalOpen: (open) => set({ isWidgetModalOpen: open }),
+
+      // User Authentication State
+      currentUser: null,
+      isAuthenticated: false,
+      isAuthModalOpen: false,
+      setAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
 
       selectedCountryFilter: 'ALL',
       setSelectedCountryFilter: (countryCode) => set({ selectedCountryFilter: countryCode }),
@@ -845,12 +870,215 @@ export const useAppStore = create<AppState>()(
           return false;
         }
       },
+
+      registerWithSupabase: async (email, password, name) => {
+        const state = get();
+        const prefs = state.userPreferences;
+        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+        if (!url || !key) {
+          const err = 'Please enter your Supabase Project URL and Anon Key first in Settings.';
+          get().addToast('Supabase Config Missing', err, 'warning');
+          return { success: false, message: err };
+        }
+
+        const res = await supabaseSignUp(url, key, email, password, name);
+        if (res.error) {
+          get().addToast('Registration Failed', res.error, 'error');
+          return { success: false, message: res.error };
+        }
+
+        if (res.user) {
+          const fullName = name || email.split('@')[0];
+          const authUser: AuthUser = {
+            id: res.user.id,
+            email: res.user.email || email,
+            name: fullName,
+            isGuest: false,
+          };
+
+          set({
+            currentUser: authUser,
+            isAuthenticated: true,
+            isAuthModalOpen: false,
+            userPreferences: {
+              ...state.userPreferences,
+              id: res.user.id,
+              name: fullName,
+              email: res.user.email || email,
+            },
+            // Initialize fresh sandbox for new user
+            accounts: [],
+            tasks: [],
+            budgets: [],
+            transactions: [],
+            calendarEvents: [],
+            habits: [],
+            dailyLogs: [],
+            nexusMetrics: [],
+            nexusInsights: [],
+          });
+
+          // Sync initial fresh sandbox to Supabase
+          setTimeout(() => {
+            get().syncToSupabase();
+          }, 300);
+
+          get().addToast('Account Created!', `Welcome to NexusOS, ${fullName}!`, 'success');
+          return { success: true };
+        }
+
+        return { success: false, message: 'Could not create account' };
+      },
+
+      loginWithSupabase: async (email, password) => {
+        const state = get();
+        const prefs = state.userPreferences;
+        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+        if (!url || !key) {
+          const err = 'Please enter your Supabase Project URL and Anon Key first in Settings.';
+          get().addToast('Supabase Config Missing', err, 'warning');
+          return { success: false, message: err };
+        }
+
+        const res = await supabaseSignIn(url, key, email, password);
+        if (res.error) {
+          get().addToast('Login Failed', res.error, 'error');
+          return { success: false, message: res.error };
+        }
+
+        if (res.user) {
+          const fullName = res.user.user_metadata?.full_name || email.split('@')[0];
+          const authUser: AuthUser = {
+            id: res.user.id,
+            email: res.user.email || email,
+            name: fullName,
+            isGuest: false,
+          };
+
+          set({
+            currentUser: authUser,
+            isAuthenticated: true,
+            isAuthModalOpen: false,
+            userPreferences: {
+              ...state.userPreferences,
+              id: res.user.id,
+              name: fullName,
+              email: res.user.email || email,
+            },
+          });
+
+          // Automatically fetch user's isolated data from Supabase
+          const cloudData = await fetchStateFromSupabase(url, key, res.user.id);
+          if (cloudData.data) {
+            const d = cloudData.data;
+            set({
+              userPreferences: d.userPreferences || state.userPreferences,
+              accounts: d.accounts || [],
+              budgets: d.budgets || [],
+              transactions: d.transactions || [],
+              tasks: d.tasks || [],
+              calendarEvents: d.calendarEvents || [],
+              habits: d.habits || [],
+              dailyLogs: d.dailyLogs || [],
+              nexusMetrics: d.nexusMetrics || [],
+              nexusInsights: d.nexusInsights || [],
+            });
+          }
+
+          get().addToast('Signed In', `Welcome back, ${fullName}!`, 'success');
+          return { success: true };
+        }
+
+        return { success: false, message: 'Login failed' };
+      },
+
+      logoutUser: async () => {
+        const state = get();
+        const prefs = state.userPreferences;
+        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+        if (url && key) {
+          await supabaseSignOut(url, key);
+        }
+
+        set({
+          currentUser: null,
+          isAuthenticated: false,
+          isAuthModalOpen: true,
+          // Reset view state to clean slate
+          accounts: [],
+          tasks: [],
+          budgets: [],
+          transactions: [],
+          calendarEvents: [],
+          habits: [],
+          dailyLogs: [],
+          nexusMetrics: [],
+          nexusInsights: [],
+        });
+
+        get().addToast('Signed Out', 'You have been securely logged out.', 'info');
+      },
+
+      continueAsGuest: (name) => {
+        const guestName = name || 'Guest User';
+        const guestUser: AuthUser = {
+          id: 'guest_' + Date.now(),
+          email: 'guest@nexus.local',
+          name: guestName,
+          isGuest: true,
+        };
+
+        set((state) => ({
+          currentUser: guestUser,
+          isAuthenticated: true,
+          isAuthModalOpen: false,
+          userPreferences: {
+            ...state.userPreferences,
+            name: guestName,
+            email: 'guest@nexus.local',
+          },
+        }));
+
+        get().addToast('Guest Mode Active', 'Operating on private local storage.', 'info');
+      },
+
+      checkExistingSession: async () => {
+        const state = get();
+        const prefs = state.userPreferences;
+        const url = prefs.supabaseUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+        const key = prefs.supabaseAnonKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+        if (url && key) {
+          const sessionRes = await supabaseGetSession(url, key);
+          if (sessionRes.user) {
+            const user = sessionRes.user;
+            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+            set({
+              currentUser: {
+                id: user.id,
+                email: user.email || '',
+                name: fullName,
+                isGuest: false,
+              },
+              isAuthenticated: true,
+            });
+          }
+        }
+      },
     }),
     {
       name: 'nexus-os-clean-storage-v3-multicountry',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         userPreferences: state.userPreferences,
+        currentUser: state.currentUser,
+        isAuthenticated: state.isAuthenticated,
         accounts: state.accounts,
         budgets: state.budgets,
         transactions: state.transactions,

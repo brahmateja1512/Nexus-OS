@@ -5,6 +5,7 @@ import { Header } from './components/navigation/Header';
 import { QuickAddModal } from './components/navigation/QuickAddModal';
 import { CommandPalette } from './components/command-palette/CommandPalette';
 import { ToastContainer } from './components/common/ToastContainer';
+import { AuthModal } from './components/auth/AuthModal';
 
 // Module Views
 import { TodayDashboard } from './components/dashboard/TodayDashboard';
@@ -16,7 +17,11 @@ import { NexusView } from './components/nexus/NexusView';
 import { SettingsView } from './components/settings/SettingsView';
 
 export function App() {
-  const { activeTab, userPreferences, setTheme, setDensity } = useAppStore();
+  const {
+    activeTab,
+    userPreferences,
+    checkExistingSession
+  } = useAppStore();
 
   // Initialize theme and density attributes on root element
   useEffect(() => {
@@ -30,6 +35,11 @@ export function App() {
       document.documentElement.classList.add('dark');
     }
   }, [userPreferences.theme, userPreferences.density]);
+
+  // Check Supabase session on startup
+  useEffect(() => {
+    checkExistingSession();
+  }, [checkExistingSession]);
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -71,6 +81,7 @@ export function App() {
       {/* 3. Global Overlays & Modals */}
       <CommandPalette />
       <QuickAddModal />
+      <AuthModal />
       <ToastContainer />
     </div>
   );

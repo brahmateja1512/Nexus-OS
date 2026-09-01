@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
 
 let supabaseClientInstance: SupabaseClient | null = null;
 let currentUrl: string = '';
@@ -12,7 +12,12 @@ export function getSupabaseClient(url: string, anonKey: string): SupabaseClient 
   }
 
   try {
-    supabaseClientInstance = createClient(url, anonKey);
+    supabaseClientInstance = createClient(url, anonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
     currentUrl = url;
     currentKey = anonKey;
     return supabaseClientInstance;
@@ -29,15 +34,13 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
       return { success: false, message: 'Invalid Supabase URL or Anon Key.' };
     }
 
-    // Ping Supabase with a lightweight query
     const { error } = await client.from('nexus_userdata').select('id').limit(1);
 
     if (error) {
-      // If table doesn't exist yet, it still confirms valid URL and key authentication
       if (error.code === '42P01' || error.message.includes('relation "nexus_userdata" does not exist')) {
         return {
           success: true,
-          message: 'Connected to Supabase! (Note: Remember to run the SQL snippet to create the table)',
+          message: 'Connected to Supabase! (Note: Remember to run the SQL snippet in Supabase SQL Editor)',
         };
       }
       return {
@@ -57,6 +60,96 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
     };
   }
 }
+
+// --- Supabase Authentication Methods ---
+
+export async function supabaseSignUp(
+  url: string,
+  anonKey: string,
+  email: string,
+  password: string,
+  fullName?: string
+): Promise<{ user: User | null; session: Session | null; error?: string }> {
+  try {
+    const client = getSupabaseClient(url, anonKey);
+    if (!client) return { user: null, session: null, error: 'Supabase client not initialized' };
+
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName || email.split('@')[0],
+        },
+      },
+    });
+
+    if (error) {
+      return { user: null, session: null, error: error.message };
+    }
+
+    return { user: data.user, session: data.session };
+  } catch (err: any) {
+    return { user: null, session: null, error: err?.message || 'Registration failed' };
+  }
+}
+
+export async function supabaseSignIn(
+  url: string,
+  anonKey: string,
+  email: string,
+  password: string
+): Promise<{ user: User | null; session: Session | null; error?: string }> {
+  try {
+    const client = getSupabaseClient(url, anonKey);
+    if (!client) return { user: null, session: null, error: 'Supabase client not initialized' };
+
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return { user: null, session: null, error: error.message };
+    }
+
+    return { user: data.user, session: data.session };
+  } catch (err: any) {
+    return { user: null, session: null, error: err?.message || 'Login failed' };
+  }
+}
+
+export async function supabaseSignOut(url: string, anonKey: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getSupabaseClient(url, anonKey);
+    if (!client) return { success: true };
+
+    const { error } = await client.auth.signOut();
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
+export async function supabaseGetSession(
+  url: string,
+  anonKey: string
+): Promise<{ user: User | null; session: Session | null }> {
+  try {
+    const client = getSupabaseClient(url, anonKey);
+    if (!client) return { user: null, session: null };
+
+    const { data, error } = await client.auth.getSession();
+    if (error || !data.session) return { user: null, session: null };
+
+    return { user: data.session.user, session: data.session };
+  } catch {
+    return { user: null, session: null };
+  }
+}
+
+// --- Data Synchronization (Isolated by userId) ---
 
 export async function syncStateToSupabase(
   url: string,
@@ -120,7 +213,13 @@ create table if not exists nexus_userdata (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable access for anonymous client
+-- Enable Row Level Security
 alter table nexus_userdata enable row level security;
-create policy "Allow all operations for anon" on nexus_userdata for all using (true) with check (true);
+
+-- Policy: Users can access and update their own personal records
+create policy "Users can access their own data"
+  on nexus_userdata
+  for all
+  using (auth.uid()::text = id or auth.role() = 'anon')
+  with check (auth.uid()::text = id or auth.role() = 'anon');
 `;

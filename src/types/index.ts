@@ -52,6 +52,13 @@ export const SUPPORTED_COUNTRIES: CountryCatalogItem[] = [
   { code: 'OTHER', name: 'Other International', flag: '🌐', currency: 'USD', symbol: '$' },
 ];
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  isGuest?: boolean;
+}
+
 export interface UserPreferences {
   id: string;
   name: string;
