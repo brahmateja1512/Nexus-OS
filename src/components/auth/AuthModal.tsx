@@ -23,7 +23,10 @@ export const AuthModal: React.FC = () => {
     loginWithSupabase,
     continueAsGuest,
     userPreferences,
+    adminSystemConfig,
   } = useAppStore();
+
+  const registrationsAllowed = adminSystemConfig?.allowNewRegistrations !== false;
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [name, setName] = useState('');
@@ -96,17 +99,23 @@ export const AuthModal: React.FC = () => {
           <div className="flex p-0.5 mt-4 bg-surface rounded-lg border border-border">
             <button
               type="button"
+              disabled={!registrationsAllowed}
               onClick={() => {
+                if (!registrationsAllowed) return;
                 setMode('register');
                 setErrorMsg('');
               }}
-              className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                mode === 'register'
-                  ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-xs'
-                  : 'text-text-muted hover:text-text-main'
+              title={!registrationsAllowed ? 'New registrations are currently disabled by admin' : undefined}
+              className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                !registrationsAllowed
+                  ? 'opacity-40 cursor-not-allowed text-text-subtle'
+                  : mode === 'register'
+                  ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-xs cursor-pointer'
+                  : 'text-text-muted hover:text-text-main cursor-pointer'
               }`}
             >
               Create Account
+              {!registrationsAllowed && <span className="block text-[9px] font-mono mt-0.2 opacity-70">Disabled</span>}
             </button>
             <button
               type="button"

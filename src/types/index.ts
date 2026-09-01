@@ -98,10 +98,18 @@ export interface AdminSystemConfig {
   masterFirebaseProjectId?: string;
   masterFirebaseAppId?: string;
   isMasterFirebaseConnected?: boolean;
+  // Access Control Flags
   allowNewRegistrations: boolean;
   maintenanceMode: boolean;
+  guestModeEnabled: boolean;
+  // Announcement Broadcast
   systemAnnouncement?: string;
+  announcementActive: boolean;
+  announcementSeverity: 'info' | 'warning' | 'critical';
+  // Platform Flags
+  autoSyncGlobalEnabled: boolean;
   autoBackupIntervalHours: number;
+  // Security
   customAdminPasskey?: string;
 }
 

@@ -208,7 +208,13 @@ const defaultAdminConfig: AdminSystemConfig = {
   isMasterSupabaseConnected: Boolean(typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL),
   allowNewRegistrations: true,
   maintenanceMode: false,
+  guestModeEnabled: true,
+  systemAnnouncement: '',
+  announcementActive: false,
+  announcementSeverity: 'info',
+  autoSyncGlobalEnabled: true,
   autoBackupIntervalHours: 6,
+  customAdminPasskey: undefined,
 };
 
 const { dailyLogs: seedDailyLogs, nexusMetrics: seedNexusMetrics } = generateHistoricalData();
