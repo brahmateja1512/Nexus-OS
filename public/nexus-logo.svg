@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <linearGradient id="nexusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9" stroke="url(#nexusGrad)" stroke-width="2.5" />
+  <path d="M12 3v18" stroke="url(#nexusGrad)" stroke-width="2" stroke-dasharray="1 3" />
+  <path d="M3 12h18" stroke="url(#nexusGrad)" stroke-width="2" stroke-dasharray="1 3" />
+  <polygon points="12,7 17,12 12,17 7,12" fill="url(#nexusGrad)" opacity="0.8" />
+  <circle cx="12" cy="12" r="2.5" fill="#ffffff" />
+</svg>

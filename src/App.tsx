@@ -1,0 +1,79 @@
+import React, { useEffect } from 'react';
+import { useAppStore } from './store/useAppStore';
+import { Sidebar } from './components/navigation/Sidebar';
+import { Header } from './components/navigation/Header';
+import { QuickAddModal } from './components/navigation/QuickAddModal';
+import { CommandPalette } from './components/command-palette/CommandPalette';
+import { ToastContainer } from './components/common/ToastContainer';
+
+// Module Views
+import { TodayDashboard } from './components/dashboard/TodayDashboard';
+import { TasksView } from './components/tasks/TasksView';
+import { CalendarView } from './components/calendar/CalendarView';
+import { FinanceView } from './components/finance/FinanceView';
+import { HabitsView } from './components/habits/HabitsView';
+import { NexusView } from './components/nexus/NexusView';
+import { SettingsView } from './components/settings/SettingsView';
+
+export function App() {
+  const { activeTab, userPreferences, setTheme, setDensity } = useAppStore();
+
+  // Initialize theme and density attributes on root element
+  useEffect(() => {
+    const theme = userPreferences.theme || 'dark';
+    const density = userPreferences.density || 'comfortable';
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-density', density);
+    if (theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+  }, [userPreferences.theme, userPreferences.density]);
+
+  const renderActiveView = () => {
+    switch (activeTab) {
+      case 'today':
+        return <TodayDashboard />;
+      case 'tasks':
+        return <TasksView />;
+      case 'calendar':
+        return <CalendarView />;
+      case 'finance':
+        return <FinanceView />;
+      case 'habits':
+        return <HabitsView />;
+      case 'nexus':
+        return <NexusView />;
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return <TodayDashboard />;
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-background text-text-main font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+      {/* 1. Left Sidebar Navigation */}
+      <Sidebar />
+
+      {/* 2. Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+        {/* Top Header */}
+        <Header />
+
+        {/* Dynamic Main Workspace */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {renderActiveView()}
+        </main>
+      </div>
+
+      {/* 3. Global Overlays & Modals */}
+      <CommandPalette />
+      <QuickAddModal />
+      <ToastContainer />
+    </div>
+  );
+}
+
+export default App;

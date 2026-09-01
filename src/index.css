@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Default: Obsidian Enterprise (Linear / Vercel Dark Aesthetic) */
+  --bg-main: #090a0f;
+  --bg-surface: #11131a;
+  --bg-surface-subtle: #181b24;
+  --bg-surface-card: rgba(17, 19, 26, 0.85);
+  --bg-surface-hover: #1f232f;
+  --border-color: rgba(255, 255, 255, 0.07);
+  --border-focus: rgba(99, 102, 241, 0.5);
+  --text-main: #f4f4f5;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --primary: #f4f4f5;
+  --primary-hover: #e4e4e7;
+  --primary-fg: #090a0f;
+  --accent: #6366f1;
+  --accent-subtle: rgba(99, 102, 241, 0.12);
+
+  /* Density default (comfortable) */
+  --density-padding-card: 1.25rem;
+  --density-padding-item: 0.75rem 1rem;
+  --density-gap: 1rem;
+}
+
+/* Theme 1: Graphite Minimalist */
+[data-theme="oled"], [data-theme="graphite"] {
+  --bg-main: #0a0a0a;
+  --bg-surface: #121212;
+  --bg-surface-subtle: #1a1a1a;
+  --bg-surface-card: rgba(18, 18, 18, 0.9);
+  --bg-surface-hover: #242424;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(255, 255, 255, 0.3);
+  --text-main: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-subtle: #71717a;
+  --primary: #ffffff;
+  --primary-hover: #e5e5e5;
+  --primary-fg: #000000;
+  --accent: #38bdf8;
+  --accent-subtle: rgba(56, 189, 248, 0.1);
+}
+
+/* Theme 2: Midnight Titanium (Deep Navy Executive) */
+[data-theme="midnight"], [data-theme="cyber"] {
+  --bg-main: #070b14;
+  --bg-surface: #0e1422;
+  --bg-surface-subtle: #162035;
+  --bg-surface-card: rgba(14, 20, 34, 0.85);
+  --bg-surface-hover: #1e2b46;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(56, 189, 248, 0.4);
+  --text-main: #f0f6fc;
+  --text-muted: #8b949e;
+  --text-subtle: #6e7681;
+  --primary: #38bdf8;
+  --primary-hover: #0284c7;
+  --primary-fg: #070b14;
+  --accent: #60a5fa;
+  --accent-subtle: rgba(96, 165, 250, 0.12);
+}
+
+/* Theme 3: Nordic Forest (Sophisticated Sage Obsidian) */
+[data-theme="emerald"], [data-theme="nordic"] {
+  --bg-main: #070d0b;
+  --bg-surface: #0d1714;
+  --bg-surface-subtle: #14231f;
+  --bg-surface-card: rgba(13, 23, 20, 0.85);
+  --bg-surface-hover: #1b2f29;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(16, 185, 129, 0.4);
+  --text-main: #f2fbf7;
+  --text-muted: #86a89c;
+  --text-subtle: #5b796e;
+  --primary: #34d399;
+  --primary-hover: #10b981;
+  --primary-fg: #070d0b;
+  --accent: #10b981;
+  --accent-subtle: rgba(16, 185, 129, 0.12);
+}
+
+/* Theme 4: Executive Light (Crisp Apple/Stripe Daylight) */
+[data-theme="light"] {
+  --bg-main: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #f1f5f9;
+  --bg-surface-card: rgba(255, 255, 255, 0.95);
+  --bg-surface-hover: #e2e8f0;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-focus: rgba(15, 23, 42, 0.4);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --primary-fg: #ffffff;
+  --accent: #4f46e5;
+  --accent-subtle: rgba(79, 70, 229, 0.08);
+}
+
+/* Density Settings */
+[data-density="compact"] {
+  --density-padding-card: 0.875rem;
+  --density-padding-item: 0.4rem 0.65rem;
+  --density-gap: 0.625rem;
+}
+
+/* Polished Card Surface */
+.glass-panel {
+  background: var(--bg-surface-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px -1px rgba(0, 0, 0, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .glass-panel {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.glass-modal {
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Refined Subtle Checkmark Pop */
+@keyframes refined-check {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-check {
+  animation: refined-check 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
