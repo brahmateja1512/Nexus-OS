@@ -2,32 +2,19 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ThemeMode } from '../../types';
 import { getTodayString } from '../../lib/utils';
-import { testSupabaseConnection } from '../../lib/supabase';
 import { Button } from '../common/Button';
 import {
   Palette,
   Maximize2,
   Minimize2,
-  Database,
   Download,
   Upload,
   ShieldCheck,
   Check,
-  Key,
   Globe,
   User,
   Trash2,
   RefreshCw,
-  Copy,
-  Terminal,
-  Layers,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  Lock,
-  Zap,
-  Radio,
   Sliders,
   ShieldAlert
 } from 'lucide-react';
@@ -42,7 +29,6 @@ export const SettingsView: React.FC = () => {
     setAuthModalOpen,
     logoutUser,
     setTheme,
-    setDensity,
     setCurrency: setStoreCurrency,
     updateUserPreferences,
     exportDataJson,
@@ -58,12 +44,6 @@ export const SettingsView: React.FC = () => {
   const [email, setEmail] = useState(currentUser?.email || userPreferences.email);
   const [currency, setCurrency] = useState(userPreferences.currency || 'USD');
   const [autoSync, setAutoSync] = useState(userPreferences.autoSyncEnabled !== false);
-
-  // Bring-Your-Own-Database (BYODB) Mode for power users
-  const [isByodbOpen, setIsByodbOpen] = useState(Boolean(userPreferences.supabaseUrl));
-  const [customSupabaseUrl, setCustomSupabaseUrl] = useState(userPreferences.supabaseUrl || '');
-  const [customSupabaseKey, setCustomSupabaseKey] = useState(userPreferences.supabaseAnonKey || '');
-  const [isTestingCustom, setIsTestingCustom] = useState(false);
 
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [isManualFetching, setIsManualFetching] = useState(false);
@@ -135,40 +115,6 @@ export const SettingsView: React.FC = () => {
       await fetchFromSupabase();
       setIsManualFetching(false);
     }
-  };
-
-  const handleConnectCustomDb = async () => {
-    if (!customSupabaseUrl.trim() || !customSupabaseKey.trim()) {
-      addToast('Missing Fields', 'Please enter your personal Supabase URL and Key', 'warning');
-      return;
-    }
-
-    setIsTestingCustom(true);
-    const res = await testSupabaseConnection(customSupabaseUrl.trim(), customSupabaseKey.trim());
-    setIsTestingCustom(false);
-
-    if (res.success) {
-      updateUserPreferences({
-        supabaseUrl: customSupabaseUrl.trim(),
-        supabaseAnonKey: customSupabaseKey.trim(),
-        isSupabaseConnected: true,
-      });
-      addToast('Personal Database Connected', 'Your workspace is now saving directly to your personal database.', 'success');
-    } else {
-      addToast('Connection Failed', res.message, 'error');
-    }
-  };
-
-  const handleResetToStandardCloud = () => {
-    updateUserPreferences({
-      supabaseUrl: '',
-      supabaseAnonKey: '',
-      isSupabaseConnected: false,
-    });
-    setCustomSupabaseUrl('');
-    setCustomSupabaseKey('');
-    setIsByodbOpen(false);
-    addToast('Reset to Standard Cloud', 'Now using default secure platform storage.', 'info');
   };
 
   const handleExport = () => {
@@ -336,95 +282,26 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* Manual Cloud Snapshot Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleManualBackup}
-              loading={isManualSyncing}
-              icon={<Upload className="w-3.5 h-3.5 text-text-muted" />}
-            >
-              Backup Snapshot Now
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleManualRestore}
-              loading={isManualFetching}
-              icon={<RefreshCw className="w-3.5 h-3.5 text-text-muted" />}
-            >
-              Restore Latest Cloud Data
-            </Button>
-          </div>
-
-          {/* Collapsible BYODB (Bring Your Own Database) Accordion */}
-          <button
-            type="button"
-            onClick={() => setIsByodbOpen(!isByodbOpen)}
-            className="text-xs text-text-subtle hover:text-text-main flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded hover:bg-surface-hover"
+        <div className="flex items-center gap-2 pt-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleManualBackup}
+            loading={isManualSyncing}
+            icon={<Upload className="w-3.5 h-3.5 text-text-muted" />}
           >
-            <span>Optional: Connect My Personal Database (BYODB)</span>
-            {isByodbOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
+            Backup Snapshot Now
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualRestore}
+            loading={isManualFetching}
+            icon={<RefreshCw className="w-3.5 h-3.5 text-text-muted" />}
+          >
+            Restore Latest Cloud Data
+          </Button>
         </div>
-
-        {/* Optional Bring-Your-Own-Database Section */}
-        {isByodbOpen && (
-          <div className="p-4 rounded-xl bg-surface border border-zinc-700/80 space-y-3 animate-fade-in mt-3">
-            <div>
-              <span className="text-xs font-bold text-text-main">Bring Your Own Personal Database</span>
-              <p className="text-[10px] text-text-subtle">
-                By default, your account is saved securely on the cloud. If you want full data sovereignty, you can point NexusOS to your own private Supabase instance.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-text-muted mb-1">Your Personal Project URL</label>
-                <input
-                  type="text"
-                  placeholder="https://your-personal-project.supabase.co"
-                  value={customSupabaseUrl}
-                  onChange={(e) => setCustomSupabaseUrl(e.target.value)}
-                  className="w-full bg-surface-subtle border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-main font-mono focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-text-muted mb-1">Your Personal Anon Key</label>
-                <input
-                  type="password"
-                  placeholder="eyJhbGciOi..."
-                  value={customSupabaseKey}
-                  onChange={(e) => setCustomSupabaseKey(e.target.value)}
-                  className="w-full bg-surface-subtle border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-main font-mono focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleConnectCustomDb}
-                loading={isTestingCustom}
-                className="text-xs"
-              >
-                Connect Personal Database
-              </Button>
-              {userPreferences.supabaseUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetToStandardCloud}
-                  className="text-xs text-rose-400 hover:text-rose-300"
-                >
-                  Reset to Standard Cloud
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 2. Theme & Visual Aesthetics */}

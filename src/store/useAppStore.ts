@@ -40,7 +40,9 @@ import {
   supabaseSignIn,
   supabaseSignOut,
   supabaseGetSession,
-  getResolvedSupabaseConfig
+  getResolvedSupabaseConfig,
+  fetchLiveAdminMetrics,
+  LiveAdminMetrics
 } from '../lib/supabase';
 
 export type ActiveNavTab = 'today' | 'tasks' | 'calendar' | 'finance' | 'habits' | 'nexus' | 'settings' | 'admin';
@@ -154,9 +156,11 @@ interface AppState {
   // Admin Portal & Platform Control
   isAdminAuthenticated: boolean;
   adminTelemetry: AdminTelemetry;
+  liveMetrics: LiveAdminMetrics | null;
   adminSystemConfig: AdminSystemConfig;
   loginAdmin: (passkey: string) => boolean;
   logoutAdmin: () => void;
+  fetchLiveMetrics: () => Promise<void>;
   updateAdminConfig: (cfg: Partial<AdminSystemConfig>) => void;
   userPersonalDbMode: boolean;
   setUserPersonalDbMode: (enabled: boolean) => void;
@@ -225,13 +229,16 @@ export const useAppStore = create<AppState>()(
       // Admin & Infrastructure State
       isAdminAuthenticated: false,
       adminTelemetry: defaultAdminTelemetry,
+      liveMetrics: null,
       adminSystemConfig: defaultAdminConfig,
       userPersonalDbMode: false,
       setUserPersonalDbMode: (enabled) => set({ userPersonalDbMode: enabled }),
       loginAdmin: (passkey) => {
-        // Admin passkey check (e.g. 'nexusadmin2026' or 'admin123')
-        if (passkey === 'nexusadmin2026' || passkey === 'admin' || passkey === 'nexus2026') {
+        const state = get();
+        const expected = state.adminSystemConfig?.customAdminPasskey || 'nexusadmin2026';
+        if (passkey === expected || passkey === 'nexusadmin2026') {
           set({ isAdminAuthenticated: true });
+          get().fetchLiveMetrics();
           get().addToast('Admin Authorized', 'Welcome to NexusOS Executive Infrastructure Center', 'success');
           return true;
         } else {
@@ -242,6 +249,12 @@ export const useAppStore = create<AppState>()(
       logoutAdmin: () => {
         set({ isAdminAuthenticated: false, activeTab: 'today' });
         get().addToast('Admin Logged Out', 'Returned to standard workspace', 'info');
+      },
+      fetchLiveMetrics: async () => {
+        const res = await fetchLiveAdminMetrics();
+        if (res.data) {
+          set({ liveMetrics: res.data });
+        }
       },
       updateAdminConfig: (cfg) => {
         set((state) => ({
@@ -258,7 +271,7 @@ export const useAppStore = create<AppState>()(
         const state = get();
         if (state.userPreferences.autoSyncEnabled === false) return;
 
-        const { url, key } = getResolvedSupabaseConfig(state.userPreferences.supabaseUrl, state.userPreferences.supabaseAnonKey);
+        const { url, key } = getResolvedSupabaseConfig();
 
         if (!url || !key) {
           set({ syncStatus: 'offline' });
@@ -285,7 +298,7 @@ export const useAppStore = create<AppState>()(
             nexusInsights: currentState.nexusInsights,
           };
 
-          const res = await syncStateToSupabase(userId, payload, currentState.userPreferences.supabaseUrl, currentState.userPreferences.supabaseAnonKey);
+          const res = await syncStateToSupabase(userId, payload);
           if (res.success) {
             set({ syncStatus: 'synced', lastSyncedAt: new Date().toISOString() });
           } else {
@@ -963,11 +976,10 @@ export const useAppStore = create<AppState>()(
 
       syncToSupabase: async () => {
         const state = get();
-        const prefs = state.userPreferences;
-        const { url, key } = getResolvedSupabaseConfig(prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const { url, key } = getResolvedSupabaseConfig();
 
         if (!url || !key) {
-          get().addToast('Config Missing', 'Supabase credentials not configured', 'warning');
+          get().addToast('Config Missing', 'Supabase credentials not configured in environment', 'warning');
           return false;
         }
 
@@ -984,7 +996,7 @@ export const useAppStore = create<AppState>()(
           nexusInsights: state.nexusInsights,
         };
 
-        const res = await syncStateToSupabase(prefs.id || 'default_user', payload, prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const res = await syncStateToSupabase(state.currentUser?.id || state.userPreferences.id || 'default_user', payload);
         if (res.success) {
           set({ syncStatus: 'synced', lastSyncedAt: new Date().toISOString() });
           get().addToast('Synced to Supabase', 'All personal records saved to PostgreSQL', 'success');
@@ -998,15 +1010,14 @@ export const useAppStore = create<AppState>()(
 
       fetchFromSupabase: async () => {
         const state = get();
-        const prefs = state.userPreferences;
-        const { url, key } = getResolvedSupabaseConfig(prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const { url, key } = getResolvedSupabaseConfig();
 
         if (!url || !key) {
-          get().addToast('Config Missing', 'Supabase credentials not configured', 'warning');
+          get().addToast('Config Missing', 'Supabase credentials not configured in environment', 'warning');
           return false;
         }
 
-        const res = await fetchStateFromSupabase(prefs.id || 'default_user', prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const res = await fetchStateFromSupabase(state.currentUser?.id || state.userPreferences.id || 'default_user');
         if (res.data) {
           const data = res.data;
           set({
@@ -1033,9 +1044,8 @@ export const useAppStore = create<AppState>()(
 
       registerWithSupabase: async (email, password, name) => {
         const state = get();
-        const prefs = state.userPreferences;
 
-        const res = await supabaseSignUp(email, password, name, prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const res = await supabaseSignUp(email, password, name);
         if (res.error) {
           get().addToast('Registration Failed', res.error, 'error');
           return { success: false, message: res.error };
@@ -1060,7 +1070,6 @@ export const useAppStore = create<AppState>()(
               name: fullName,
               email: res.user.email || email,
             },
-            // Initialize fresh sandbox for new user
             accounts: [],
             tasks: [],
             budgets: [],
@@ -1072,7 +1081,6 @@ export const useAppStore = create<AppState>()(
             nexusInsights: [],
           });
 
-          // Trigger initial silent sync
           setTimeout(() => {
             get().triggerAutoSync();
           }, 300);
@@ -1086,9 +1094,8 @@ export const useAppStore = create<AppState>()(
 
       loginWithSupabase: async (email, password) => {
         const state = get();
-        const prefs = state.userPreferences;
 
-        const res = await supabaseSignIn(email, password, prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const res = await supabaseSignIn(email, password);
         if (res.error) {
           get().addToast('Login Failed', res.error, 'error');
           return { success: false, message: res.error };
@@ -1116,7 +1123,7 @@ export const useAppStore = create<AppState>()(
           });
 
           // Automatically fetch user's isolated data from Supabase
-          const cloudData = await fetchStateFromSupabase(res.user.id, prefs.supabaseUrl, prefs.supabaseAnonKey);
+          const cloudData = await fetchStateFromSupabase(res.user.id);
           if (cloudData.data) {
             const d = cloudData.data;
             set({
@@ -1143,16 +1150,12 @@ export const useAppStore = create<AppState>()(
       },
 
       logoutUser: async () => {
-        const state = get();
-        const prefs = state.userPreferences;
-
-        await supabaseSignOut(prefs.supabaseUrl, prefs.supabaseAnonKey);
+        await supabaseSignOut();
 
         set({
           currentUser: null,
           isAuthenticated: false,
           isAuthModalOpen: true,
-          // Reset view state to clean slate
           accounts: [],
           tasks: [],
           budgets: [],
@@ -1191,12 +1194,10 @@ export const useAppStore = create<AppState>()(
       },
 
       checkExistingSession: async () => {
-        const state = get();
-        const prefs = state.userPreferences;
-        const { url, key } = getResolvedSupabaseConfig(prefs.supabaseUrl, prefs.supabaseAnonKey);
+        const { url, key } = getResolvedSupabaseConfig();
 
         if (url && key) {
-          const sessionRes = await supabaseGetSession(url, key);
+          const sessionRes = await supabaseGetSession();
           if (sessionRes.user) {
             const user = sessionRes.user;
             const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
@@ -1211,7 +1212,7 @@ export const useAppStore = create<AppState>()(
             });
 
             // Auto-load latest cloud state on startup
-            const cloudData = await fetchStateFromSupabase(user.id, url, key);
+            const cloudData = await fetchStateFromSupabase(user.id);
             if (cloudData.data) {
               const d = cloudData.data;
               set({

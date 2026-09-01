@@ -102,6 +102,7 @@ export interface AdminSystemConfig {
   maintenanceMode: boolean;
   systemAnnouncement?: string;
   autoBackupIntervalHours: number;
+  customAdminPasskey?: string;
 }
 
 export interface UserPreferences {
