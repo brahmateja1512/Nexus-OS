@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   RefreshCw,
   Cloud,
-  CheckCircle2
+  CheckCircle2,
+  Menu
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from '../common/Button';
@@ -28,6 +29,7 @@ export const Header: React.FC = () => {
     setCommandPaletteOpen,
     setQuickAddOpen,
     setWidgetModalOpen,
+    setMobileMenuOpen,
     activeTab,
   } = useAppStore();
 
@@ -59,14 +61,24 @@ export const Header: React.FC = () => {
   ];
 
   return (
-    <header className="h-14 border-b border-border bg-surface/80 backdrop-blur-md px-5 flex items-center justify-between sticky top-0 z-20">
-      {/* Left: Clock, Date & Real-Time Sync Indicator */}
-      <div className="flex items-center gap-2.5">
-        <div className="flex items-center gap-2 text-xs text-text-muted bg-surface-subtle px-2.5 py-1 rounded-md border border-border">
-          <Clock className="w-3.5 h-3.5 text-text-subtle" />
+    <header className="h-14 border-b border-border bg-surface/80 backdrop-blur-md px-3 sm:px-5 flex items-center justify-between sticky top-0 z-20">
+      {/* Left: Mobile Menu Toggle, Clock, Date & Real-Time Sync Indicator */}
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* Mobile Hamburger Button */}
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="md:hidden p-1.5 rounded-lg text-text-muted hover:text-text-main bg-surface-subtle border border-border transition-colors cursor-pointer"
+          title="Open Menu"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+
+        {/* Clock & Date Widget */}
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-text-muted bg-surface-subtle px-2 sm:px-2.5 py-1 rounded-md border border-border">
+          <Clock className="w-3.5 h-3.5 text-text-subtle hidden sm:inline-block" />
           <span className="font-mono text-text-main font-semibold">{currentTime}</span>
-          <span className="text-text-subtle">·</span>
-          <span className="text-text-muted">{currentDateStr}</span>
+          <span className="text-text-subtle hidden sm:inline-block">·</span>
+          <span className="text-text-muted hidden sm:inline-block">{currentDateStr}</span>
         </div>
 
         {/* Real-Time Cloud Sync Badge */}
@@ -78,7 +90,7 @@ export const Header: React.FC = () => {
               ? 'Cloud sync pending'
               : 'End-to-end encrypted & synced'
           }
-          className={`hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+          className={`hidden lg:flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
             syncStatus === 'saving'
               ? 'bg-amber-950/40 text-amber-300 border-amber-800/80'
               : syncStatus === 'error'
@@ -99,21 +111,22 @@ export const Header: React.FC = () => {
           ) : (
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="text-text-muted font-medium">All changes saved</span>
+              <span className="text-text-muted font-medium">All saved</span>
             </>
           )}
         </div>
       </div>
 
       {/* Center: Search & Command Bar */}
-      <div className="flex-1 max-w-md mx-4">
+      <div className="flex-1 max-w-md mx-2 sm:mx-4">
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-hover border border-border text-xs text-text-muted hover:text-text-main transition-colors group cursor-pointer"
+          className="w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-hover border border-border text-xs text-text-muted hover:text-text-main transition-colors group cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <Search className="w-3.5 h-3.5 text-text-subtle group-hover:text-text-muted transition-colors" />
-            <span className="truncate">Type a command or search (Ctrl+K)...</span>
+            <span className="truncate hidden sm:inline-block">Type a command or search (Ctrl+K)...</span>
+            <span className="truncate sm:hidden">Search or Command...</span>
           </div>
           <kbd className="hidden sm:inline-block px-1.5 py-0.2 text-[9px] font-mono rounded bg-surface border border-border text-text-subtle">
             ⌘K
@@ -122,12 +135,12 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Density Switcher */}
         <button
           onClick={() => setDensity(userPreferences.density === 'compact' ? 'comfortable' : 'compact')}
           title={`Switch to ${userPreferences.density === 'compact' ? 'Comfortable' : 'Compact'} View`}
-          className="p-1.5 rounded-lg text-text-muted hover:text-text-main bg-surface-subtle hover:bg-surface-hover border border-border transition-colors cursor-pointer"
+          className="hidden sm:inline-flex p-1.5 rounded-lg text-text-muted hover:text-text-main bg-surface-subtle hover:bg-surface-hover border border-border transition-colors cursor-pointer"
         >
           {userPreferences.density === 'compact' ? (
             <Maximize2 className="w-4 h-4 text-text-muted" />
@@ -144,7 +157,7 @@ export const Header: React.FC = () => {
             title="Select Theme"
           >
             <Palette className="w-4 h-4 text-text-subtle" />
-            <ChevronDown className="w-3 h-3 text-text-subtle" />
+            <ChevronDown className="w-3 h-3 text-text-subtle hidden sm:inline-block" />
           </button>
 
           {themeDropdownOpen && (
@@ -191,7 +204,7 @@ export const Header: React.FC = () => {
             size="sm"
             onClick={() => setWidgetModalOpen(true)}
             icon={<Sliders className="w-3.5 h-3.5 text-text-muted" />}
-            className="hidden sm:inline-flex"
+            className="hidden lg:inline-flex text-xs"
           >
             Widgets
           </Button>
@@ -203,8 +216,10 @@ export const Header: React.FC = () => {
           size="sm"
           onClick={() => setQuickAddOpen(true)}
           icon={<Plus className="w-3.5 h-3.5" />}
+          className="text-xs px-2.5 py-1 sm:px-3 sm:py-1.5"
         >
-          <span>Quick Entry</span>
+          <span className="hidden sm:inline-block">Quick Entry</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
     </header>

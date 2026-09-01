@@ -14,7 +14,9 @@ import {
   LogOut,
   LogIn,
   User,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  X
 } from 'lucide-react';
 import { useAppStore, ActiveNavTab } from '../../store/useAppStore';
 import { cn } from '../../lib/utils';
@@ -30,6 +32,8 @@ export const Sidebar: React.FC = () => {
     userPreferences,
     currentUser,
     isAuthenticated,
+    isMobileMenuOpen,
+    setMobileMenuOpen,
     setAuthModalOpen,
     logoutUser,
   } = useAppStore();
@@ -47,6 +51,7 @@ export const Sidebar: React.FC = () => {
     { id: 'habits', label: 'Habits & Streaks', icon: <Flame className="w-4 h-4" />, badge: pendingHabits > 0 ? pendingHabits : undefined },
     { id: 'nexus', label: 'The Nexus Core', icon: <GitMerge className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+    { id: 'admin', label: 'Admin Infrastructure', icon: <ShieldAlert className="w-4 h-4 text-amber-400" /> },
   ];
 
   const userName = currentUser?.name || userPreferences.name || 'Personal User';
@@ -58,8 +63,13 @@ export const Sidebar: React.FC = () => {
     .substring(0, 2)
     .toUpperCase() || 'NX';
 
-  return (
-    <aside className="w-60 shrink-0 bg-surface/95 border-r border-border flex flex-col justify-between h-screen sticky top-0 backdrop-blur-md z-20 select-none">
+  const handleNavClick = (tab: ActiveNavTab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
+
+  const renderSidebarContent = (isMobile: boolean = false) => (
+    <div className="flex flex-col justify-between h-full">
       {/* Brand Header */}
       <div>
         <div className="px-5 py-4 flex items-center justify-between border-b border-border">
@@ -78,6 +88,15 @@ export const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {isMobile && (
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-1 rounded-lg text-text-subtle hover:text-text-main hover:bg-surface-hover transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Items */}
@@ -87,9 +106,9 @@ export const Sidebar: React.FC = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleNavClick(item.id)}
                 className={cn(
-                  'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 group cursor-pointer',
+                  'w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all duration-150 group cursor-pointer',
                   isActive
                     ? 'bg-zinc-800 text-zinc-100 font-semibold border border-zinc-700/80 shadow-xs'
                     : 'text-text-muted hover:text-text-main hover:bg-surface-hover border border-transparent'
@@ -103,14 +122,7 @@ export const Sidebar: React.FC = () => {
                 </div>
 
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span
-                    className={cn(
-                      'text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold',
-                      isActive
-                        ? 'bg-zinc-700 text-zinc-200'
-                        : 'bg-surface-subtle text-text-subtle group-hover:text-text-main'
-                    )}
-                  >
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono rounded-full bg-zinc-700/80 text-zinc-300 font-semibold">
                     {item.badge}
                   </span>
                 )}
@@ -120,23 +132,7 @@ export const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Quick Action Trigger */}
-      <div className="px-3 pb-2">
-        <button
-          onClick={() => setCommandPaletteOpen(true)}
-          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-surface-subtle border border-border text-xs text-text-muted hover:text-text-main hover:border-zinc-600 transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <Command className="w-3.5 h-3.5 text-text-subtle" />
-            <span className="text-[11px]">Command Menu</span>
-          </div>
-          <kbd className="text-[9px] font-mono bg-surface border border-border px-1 py-0.5 rounded text-text-subtle">
-            Ctrl+K
-          </kbd>
-        </button>
-      </div>
-
-      {/* Footer Info & User Profile / Auth Switcher */}
+      {/* Footer System Status & User Profile */}
       <div className="p-3 border-t border-border space-y-2">
         {/* Storage State Indicator */}
         <div className="p-2 rounded-lg bg-surface-subtle border border-border text-xs">
@@ -148,11 +144,7 @@ export const Sidebar: React.FC = () => {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
           </div>
           <p className="text-[10px] text-text-subtle">
-            {userPreferences.isSupabaseConnected
-              ? 'Supabase Synced'
-              : userPreferences.isFirebaseConnected
-              ? 'Google Cloud Synced'
-              : 'Local-first Database'}
+            PostgreSQL Auto-Sync Active
           </p>
         </div>
 
@@ -173,7 +165,10 @@ export const Sidebar: React.FC = () => {
           {/* Auth Action Button (Sign In or Log Out) */}
           {currentUser && !currentUser.isGuest ? (
             <button
-              onClick={() => logoutUser()}
+              onClick={() => {
+                logoutUser();
+                setMobileMenuOpen(false);
+              }}
               className="p-1 rounded text-text-subtle hover:text-rose-400 hover:bg-surface-hover transition-colors cursor-pointer"
               title="Log Out of Workspace"
             >
@@ -181,7 +176,10 @@ export const Sidebar: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={() => setAuthModalOpen(true)}
+              onClick={() => {
+                setAuthModalOpen(true);
+                setMobileMenuOpen(false);
+              }}
               className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-text-main text-[10px] font-semibold border border-zinc-600 transition-colors cursor-pointer flex items-center gap-1"
               title="Sign In / Register"
             >
@@ -191,6 +189,33 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* 1. Desktop Persistent Sidebar */}
+      <aside className="hidden md:flex w-60 shrink-0 bg-surface/95 border-r border-border flex-col justify-between h-screen sticky top-0 backdrop-blur-md z-20 select-none">
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* 2. Mobile Slide-out Drawer */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden animate-fade-in flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-72 max-w-[80vw] bg-surface border-r border-border h-full shadow-2xl flex flex-col z-10 animate-slide-in-left">
+            {renderSidebarContent(true)}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
+
+export default Sidebar;

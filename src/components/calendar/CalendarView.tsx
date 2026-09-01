@@ -350,50 +350,52 @@ export const CalendarView: React.FC = () => {
               })}
             </div>
           ) : (
-            <div className="grid grid-cols-7 gap-2 flex-1 overflow-y-auto">
-              {weekDates.map((dateStr) => {
-                const isSelected = dateStr === selectedDate;
-                const isToday = dateStr === getTodayString();
-                const dayEvents = getEventsForDate(dateStr);
+            <div className="overflow-x-auto flex-1 pb-2">
+              <div className="grid grid-cols-7 gap-2 min-w-[560px] h-full">
+                {weekDates.map((dateStr) => {
+                  const isSelected = dateStr === selectedDate;
+                  const isToday = dateStr === getTodayString();
+                  const dayEvents = getEventsForDate(dateStr);
 
-                return (
-                  <div
-                    key={dateStr}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDropSlot(e, '10:00', dateStr)}
-                    onClick={() => setSelectedDate(dateStr)}
-                    className={`rounded-lg p-2.5 border flex flex-col transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-surface-subtle border-zinc-500 shadow-xs'
-                        : 'bg-surface-subtle/40 border-border hover:border-zinc-600'
-                    }`}
-                  >
-                    <div className="text-center pb-1.5 mb-1.5 border-b border-border">
-                      <p className="text-[9px] uppercase font-semibold text-text-subtle">
-                        {new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' })}
-                      </p>
-                      <p className={`text-sm font-bold font-mono ${isToday ? 'text-text-main underline' : 'text-text-muted'}`}>
-                        {new Date(dateStr).getDate()}
-                      </p>
-                    </div>
+                  return (
+                    <div
+                      key={dateStr}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDropSlot(e, '10:00', dateStr)}
+                      onClick={() => setSelectedDate(dateStr)}
+                      className={`rounded-lg p-2.5 border flex flex-col transition-colors cursor-pointer min-h-[400px] ${
+                        isSelected
+                          ? 'bg-surface-subtle border-zinc-500 shadow-xs'
+                          : 'bg-surface-subtle/40 border-border hover:border-zinc-600'
+                      }`}
+                    >
+                      <div className="text-center pb-1.5 mb-1.5 border-b border-border">
+                        <p className="text-[9px] uppercase font-semibold text-text-subtle">
+                          {new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' })}
+                        </p>
+                        <p className={`text-sm font-bold font-mono ${isToday ? 'text-text-main underline' : 'text-text-muted'}`}>
+                          {new Date(dateStr).getDate()}
+                        </p>
+                      </div>
 
-                    <div className="space-y-1 flex-1 overflow-y-auto">
-                      {dayEvents.map((evt) => (
-                        <div
-                          key={evt.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditEvent(evt);
-                          }}
-                          className="p-1 rounded bg-surface border border-border text-[9px] font-medium truncate text-text-main"
-                        >
-                          <span className="font-mono text-text-subtle">{evt.startTime}</span> {evt.title}
-                        </div>
-                      ))}
+                      <div className="space-y-1 flex-1 overflow-y-auto">
+                        {dayEvents.map((evt) => (
+                          <div
+                            key={evt.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditEvent(evt);
+                            }}
+                            className="p-1 rounded bg-surface border border-border text-[9px] font-medium truncate text-text-main hover:border-zinc-500"
+                          >
+                            <span className="font-mono text-text-subtle">{evt.startTime}</span> {evt.title}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

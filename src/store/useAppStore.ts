@@ -65,6 +65,8 @@ interface AppState {
   setQuickAddOpen: (open: boolean) => void;
   isWidgetModalOpen: boolean;
   setWidgetModalOpen: (open: boolean) => void;
+  isMobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
 
   // Multi-Country active selection
   selectedCountryFilter: string; // "ALL" or "US", "IN", "GB", "EU", etc.
@@ -225,6 +227,8 @@ export const useAppStore = create<AppState>()(
       setQuickAddOpen: (open) => set({ isQuickAddOpen: open }),
       isWidgetModalOpen: false,
       setWidgetModalOpen: (open) => set({ isWidgetModalOpen: open }),
+      isMobileMenuOpen: false,
+      setMobileMenuOpen: (open) => set({ isMobileMenuOpen: open }),
 
       // Admin & Infrastructure State
       isAdminAuthenticated: false,

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { Sidebar } from './components/navigation/Sidebar';
 import { Header } from './components/navigation/Header';
+import { MobileNavBar } from './components/navigation/MobileNavBar';
 import { QuickAddModal } from './components/navigation/QuickAddModal';
 import { CommandPalette } from './components/command-palette/CommandPalette';
 import { ToastContainer } from './components/common/ToastContainer';
@@ -80,7 +81,7 @@ export function App() {
 
   return (
     <div className="flex min-h-screen bg-background text-text-main font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
-      {/* 1. Left Sidebar Navigation */}
+      {/* 1. Left Sidebar Navigation (Desktop Persistent & Mobile Drawer) */}
       <Sidebar />
 
       {/* 2. Main Content Area */}
@@ -88,13 +89,16 @@ export function App() {
         {/* Top Header */}
         <Header />
 
-        {/* Dynamic Main Workspace */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Dynamic Main Workspace with mobile bottom nav clearance */}
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl w-full mx-auto">
           {renderActiveView()}
         </main>
       </div>
 
-      {/* 3. Global Overlays & Modals */}
+      {/* 3. Mobile Glassmorphic Bottom Navigation Dock */}
+      <MobileNavBar />
+
+      {/* 4. Global Overlays & Modals */}
       <CommandPalette />
       <QuickAddModal />
       <AuthModal />
