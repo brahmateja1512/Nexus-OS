@@ -174,6 +174,8 @@ export async function supabaseSignUp(
         data: {
           full_name: fullName || email.split('@')[0],
         },
+        // Always redirect to production URL after email confirmation
+        emailRedirectTo: `${window.location.origin}/`,
       },
     });
 
